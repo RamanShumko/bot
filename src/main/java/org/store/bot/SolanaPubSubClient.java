@@ -18,22 +18,9 @@ public class SolanaPubSubClient extends WebSocketClient {
     @Override
     public void onOpen(ServerHandshake handshake) {
         log.info("WebSocket подключён.");
-        // Отправляем подписку на учётную запись
-        String subscriptionMessage = """
-                    {
-                         "jsonrpc": "2.0",
-                         "id": "1",
-                         "method": "accountSubscribe",
-                         "params": [
-                            "GVdCTmkVF7qXE8wPe9vWandwMevsw4K1yqwV9F9R2yn3",
-                             {
-                                "encoding": "jsonParsed",
-                                "commitment": "finalized"
-                             }
-                         ]
-                    }
-                """;
+        String subscriptionMessage = SolanaParser.accountSubscribe();
 
+        // Отправляем подписку на учётную запись
         send(subscriptionMessage);
         log.info("Подписка отправлена: " + subscriptionMessage);
     }
@@ -55,7 +42,6 @@ public class SolanaPubSubClient extends WebSocketClient {
                 this.reconnectBlocking(); // Переподключение в новом потоке
                 log.info("Переподключение успешно.");
             } catch (InterruptedException e) {
-                e.printStackTrace();
                 log.error("Ошибка при переподключении: " + e.getMessage());
             }
         });

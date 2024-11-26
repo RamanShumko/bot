@@ -9,12 +9,12 @@ import java.util.List;
 public class SolanaParser {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    static public void parseResponseAccountNotification(String message) {
+    public static void parseResponseAccountNotification(String message) {
         try {
-            JsonNode jsonNode_1 = objectMapper.readTree(message);
+            JsonNode jsonMessage = objectMapper.readTree(message);
 
-            if (jsonNode_1.has("method") && "accountNotification".equals(jsonNode_1.get("method").asText())) {
-                JsonNode value = jsonNode_1.get("params").get("result").get("value");
+            if (jsonMessage.has("method") && "accountNotification".equals(jsonMessage.get("method").asText())) {
+                JsonNode value = jsonMessage.get("params").get("result").get("value");
                 long lamports = value.get("lamports").asLong();
                 String owner = value.get("owner").asText();
                 boolean executable = value.get("executable").asBoolean();
@@ -47,7 +47,24 @@ public class SolanaParser {
         }
     }
 
-    static public ResponseLogSubscribe parseResponseLogSubscribe(String json) {
+    public static String accountSubscribe() {
+        return """
+                    {
+                         "jsonrpc": "2.0",
+                         "id": "1",
+                         "method": "accountSubscribe",
+                         "params": [
+                            "GVdCTmkVF7qXE8wPe9vWandwMevsw4K1yqwV9F9R2yn3",
+                             {
+                                "encoding": "jsonParsed",
+                                "commitment": "finalized"
+                             }
+                         ]
+                    }
+                """;
+    }
+
+    public static ResponseLogSubscribe parseResponseLogSubscribe(String json) {
         try {
             JsonNode rootNode = objectMapper.readTree(json);
 
