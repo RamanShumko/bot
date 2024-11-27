@@ -39,6 +39,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>1.18.34</version>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -50,6 +51,16 @@
             <groupId>com.mmorrell</groupId>
             <artifactId>solanaj</artifactId>
             <version>1.19.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mmorrell</groupId>
+            <artifactId>phoenix</artifactId>
+            <version>1.33.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mmorrell</groupId>
+            <artifactId>openbook</artifactId>
+            <version>1.30.3</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
