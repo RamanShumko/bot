@@ -10,15 +10,13 @@ import org.p2p.solanaj.core.Account;
 import org.p2p.solanaj.core.PublicKey;
 import org.p2p.solanaj.core.Transaction;
 import org.p2p.solanaj.core.TransactionInstruction;
-import org.p2p.solanaj.programs.AssociatedTokenProgram;
-import org.p2p.solanaj.programs.Program;
 import org.p2p.solanaj.programs.SystemProgram;
-import org.p2p.solanaj.programs.TokenProgram;
 import org.p2p.solanaj.rpc.RpcException;
-import org.p2p.solanaj.rpc.types.ConfirmedTransaction;
 import org.p2p.solanaj.rpc.types.TokenResultObjects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -36,43 +34,89 @@ public class WalletService {
         String tokenMintAddress = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
         // Получение данных о токен-счетах двух кошельков, по mint адресу токена
-        PublicKey sellerTokenAccount;
-        PublicKey buyerTokenAccount;
-        Transaction transaction_0 = new Transaction();
+        PublicKey sellerTokenAccount = null;
+        PublicKey buyerTokenAccount = null;
 
-        // Динамическое создание токен-счёта для кошелька
-        TransactionInstruction transactionInstruction = AssociatedTokenProgram.create(senderAccount.getPublicKey(), senderAccount.getPublicKey(), PublicKey.valueOf(tokenMintAddress));
-        transaction_0.addInstruction(transactionInstruction);
-        try {
-            solanaClient.getRpcClient().getApi().sendTransaction(transaction_0, senderAccount);
-        } catch (RpcException e) {
-            log.warn("Token account for this wallet already exists: {}", e.getMessage());
+        OpenBookManager openBookManager = new OpenBookManager(solanaClient.getRpcClient());
+//        List<OpenBookMarket> openBookMarkets = openBookManager.getOpenBookMarkets();
+        OpenBookMarket solUsdcMarket = null;
+        for (OpenBookMarket market : openBookManager.getOpenBookMarkets()) {
+            if (market.getName().equals("SOL-USDC")){
+                solUsdcMarket = openBookManager.getMarket(
+                        market.getMarketId(),
+                        false, // Не загружать рынок заново, если он уже кэширован
+                        true   // Загружать ордербуки
+                ).get();
+                break;
+            }
         }
 
-        // Получение токен-счётов у кошельков
+        // Подготовка данных
+        PublicKey ownerPublicKey = senderAccount.getPublicKey(); // Владелец аккаунта
+        PublicKey marketPublicKey = solUsdcMarket.getMarketId(); // Рынок
+
+        // Генерация нового OpenOrders аккаунта
+        Account newOpenOrdersAccount = new Account();
+        PublicKey openOrdersPublicKey = newOpenOrdersAccount.getPublicKey();
+
+        // Генерация инструкции для создания OpenOrderAccount
+        TransactionInstruction createOpenOrderAccountInstruction = SystemProgram.createAccount(
+                ownerPublicKey,             // Владелец аккаунта
+                openOrdersPublicKey,        // Новый OpenOrders аккаунт
+                100000000,                  // Баланс для аренды
+                3228,                       // Размер данных OpenOrdersAccount
+                SystemProgram.PROGRAM_ID    // Программа DEX
+        );
+
+        // Подключение нового OpenOrders аккаунта к рынку
+        TransactionInstruction initOpenOrdersInstruction = SerumProgram.initOpenOrders(
+                openOrdersPublicKey,        // Новый OpenOrders аккаунт
+                ownerPublicKey,             // Владелец аккаунта
+                marketPublicKey            // Рынок
+        );
+
+        // Создаем транзакцию
+        Transaction transaction_0 = new Transaction();
+        transaction_0.addInstruction(createOpenOrderAccountInstruction);
+        transaction_0.addInstruction(initOpenOrdersInstruction);
+
         try {
-            buyerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), new PublicKey(tokenMintAddress));
-            sellerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("GrNg1XM2ctzeE2mXxXCfhcTUbejM8Z4z4wNVTy2FjMEz"), new PublicKey(tokenMintAddress));
-            log.info(buyerTokenAccount + " " + sellerTokenAccount);
+            solanaClient.getRpcClient().getApi().sendTransaction(transaction_0, senderAccount);
         } catch (RpcException e) {
             throw new RuntimeException(e);
         }
 
-        final Market solUsdcMarket = new MarketBuilder()
-                .setClient(solanaClient.getRpcClient())
-                .setPublicKey(new PublicKey("C3YPL3kYCSYKsmHcHrPWx1632GUXGqi2yMXJbfeCc57q"))
-                .setRetrieveOrderBooks(true)
-                .build();
+        // Динамическое создание токен-счёта для кошелька
+//        TransactionInstruction transactionInstruction = AssociatedTokenProgram.create(senderAccount.getPublicKey(), senderAccount.getPublicKey(), PublicKey.valueOf(tokenMintAddress));
+//        transaction_0.addInstruction(transactionInstruction);
+//        try {
+//            solanaClient.getRpcClient().getApi().sendTransaction(transaction_0, senderAccount);
+//        } catch (RpcException e) {
+//            log.warn("Token account for this wallet already exists: {}", e.getMessage());
+//        }
 
-        OpenBookManager openBookManager = new OpenBookManager(solanaClient.getRpcClient());
+        // Получение токен-счётов у кошельков
+//        try {
+//            buyerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), new PublicKey(tokenMintAddress));
+//            sellerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("GrNg1XM2ctzeE2mXxXCfhcTUbejM8Z4z4wNVTy2FjMEz"), new PublicKey(tokenMintAddress));
+//            log.info(buyerTokenAccount + " " + sellerTokenAccount);
+//        } catch (RpcException e) {
+//            throw new RuntimeException(e);
+//        }
 
-//        OpenBookMarket solUsdcMarket = openBookManager.getMarket(
-//                PublicKey.valueOf("C3YPL3kYCSYKsmHcHrPWx1632GUXGqi2yMXJbfeCc57q"),
-//                false, // Не загружать рынок заново, если он уже кэширован
-//                true   // Загружать ордербуки
-//        ).get();
-//
-//        log.info("Bids: {}", solUsdcMarket.getBidOrders()); // Заявки на покупку
+//        final PublicKey solUsdcPublicKey = new PublicKey("6rqb1WuJKSXSwvbPjXnF3J5CuHMLdkdkJoHJZLsCmmn2");
+//        final Market market = new MarketBuilder()
+//                .setClient(solanaClient.getRpcClient())                      // Устанавливаем RPC клиент
+//                .setPublicKey(solUsdcPublicKey)                // Указываем ключ рынка
+//                .setRetrieveOrderBooks(true)            // Извлекаем ордербуки
+//                .setRetrieveEventQueue(false)           // Очередь событий можно отключить
+//                .setRetrieveDecimalsOnly(false)         // Полное извлечение данных
+//                .build();                               // Строим объект Market
+
+
+
+
+//        log.info("Bids: {}", solUsdcMarket); // Заявки на покупку
 //        log.info("Asks: {}", solUsdcMarket.getAskOrders()); // Заявки на продажу
 
         // 3. Создайте лимитный ордер
@@ -86,8 +130,7 @@ public class WalletService {
                 .build();
 
 
-
-        OpenOrdersAccount openOrdersAccount = SerumUtils.findOpenOrdersAccountForOwner(solanaClient.getRpcClient(), solUsdcMarket.getOwnAddress(), senderAccount.getPublicKey());
+        OpenOrdersAccount openOrdersAccount = SerumUtils.findOpenOrdersAccountForOwner(solanaClient.getRpcClient(), solUsdcMarket.getMarketId(), senderAccount.getPublicKey());
 
         // Отправка ордера на рынок
         TransactionInstruction placeOrderInstruction = SerumProgram.placeOrder(
@@ -105,7 +148,6 @@ public class WalletService {
         } catch (RpcException e) {
             throw new RuntimeException(e);
         }
-
 
     }
 

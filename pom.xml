@@ -59,6 +59,11 @@
         </dependency>
         <dependency>
             <groupId>com.mmorrell</groupId>
+            <artifactId>jupiter</artifactId>
+            <version>1.33.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mmorrell</groupId>
             <artifactId>openbook</artifactId>
             <version>1.30.3</version>
         </dependency>
