@@ -25,7 +25,23 @@ public class BotController {
     @PutMapping("/token")
     public void transferToken() {
 //        return walletService.transferToken(fromTokenAddress, toTokenAddress, amount);
-        walletService.buyToken();
+//        walletService.buyToken();
+        walletService.transferToken();
+    }
+
+    @PutMapping("/token/transferOwnWallet")
+    public void transferTokenBetweenOwnWallet() {
+        walletService.transferTokenBetweenOwnWallet();
+    }
+
+    @PutMapping("/token/transferSomeoneElse")
+    public void transferTokenBySomeoneElse() {
+        walletService.transferTokenBySomeoneElse();
+    }
+
+    @PostMapping("/token/mint")
+    public void mintToken() {
+        walletService.mintToken();
     }
 
     @GetMapping("/token")

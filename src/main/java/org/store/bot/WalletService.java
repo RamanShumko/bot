@@ -10,7 +10,9 @@ import org.p2p.solanaj.core.Account;
 import org.p2p.solanaj.core.PublicKey;
 import org.p2p.solanaj.core.Transaction;
 import org.p2p.solanaj.core.TransactionInstruction;
+import org.p2p.solanaj.programs.AssociatedTokenProgram;
 import org.p2p.solanaj.programs.SystemProgram;
+import org.p2p.solanaj.programs.TokenProgram;
 import org.p2p.solanaj.rpc.RpcException;
 import org.p2p.solanaj.rpc.types.TokenResultObjects;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,108 @@ public class WalletService {
     private final SolanaClient solanaClient;
     @Value("${wallet.keypair.path}")
     private String fileKey;
+
+    public void transferToken() {
+        // SOL/USDC
+        OpenBookManager openBookManager = new OpenBookManager(solanaClient.getRpcClient());
+
+        OpenBookMarket solUsdc = openBookManager.getMarket(
+                PublicKey.valueOf("C3YPL3kYCSYKsmHcHrPWx1632GUXGqi2yMXJbfeCc57q"),
+                false,
+                true
+        ).get();
+
+        log.info("Bids: {}", solUsdc.getBidOrders());
+        log.info("Asks: {}", solUsdc.getAskOrders());
+    }
+
+    // Перевод токена между собственным токен-счётом и чужим
+    public void transferTokenBySomeoneElse() {
+        // Приватный ключ (отправитель, подписчик транзакции)
+        Account senderAccount = new Account(getSecretKeyWallet());
+
+        // Адрес токена, который будем переводить и его MINT
+        String tokenMintAddress = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+//        // Динамическое создание токен-счёта для кошелька, под определённый mint токена
+//        AssociatedTokenProgram.create(senderAccount.getPublicKey(), senderAccount.getPublicKey(), PublicKey.valueOf(tokenMintAddress));
+
+        // Получение токен-счетов двух кошельков, по mint адресу токена
+        PublicKey sellerTokenAccount;
+        PublicKey buyerTokenAccount;
+        try {
+            // Токен-счёт продавца
+            sellerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("GrNg1XM2ctzeE2mXxXCfhcTUbejM8Z4z4wNVTy2FjMEz"), new PublicKey(tokenMintAddress));
+            // Токен-счёт покупателя
+            buyerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), new PublicKey(tokenMintAddress));
+            log.info(buyerTokenAccount + " " + sellerTokenAccount);
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+
+        // Подготовка транзакции для перевода токенов
+        Transaction transaction = new Transaction();
+        transaction.addInstruction(
+                TokenProgram.transfer(
+                        sellerTokenAccount, // От кого (токен-счёт)
+                        buyerTokenAccount,  // Кому (токен-счёт)
+                        20000000,             // Количество токенов в лампортах
+                        new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV")   // Отправитель (кошелёк)
+                )
+        );
+
+        // Отправка транзакции в сеть
+        try {
+            String signature = solanaClient.getRpcClient().getApi().sendTransaction(transaction, senderAccount);
+            log.info("Transaction Signature: " + signature);
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // Перевод токена между двумя собственными токен-счётами
+    public void transferTokenBetweenOwnWallet() {
+        // Приватный ключ (отправитель, подписчик транзакции)
+        Account senderAccount = new Account(getSecretKeyWallet());
+
+        // Адрес токена, который будем переводить и его MINT
+        String tokenMintAddress = "7opDX1dwkVh1LjjwsMGgrR8NzaQTLgNiT5EY839GEKVA";
+
+//        // Динамическое создание токен-счёта для кошелька, под определённый mint токена
+//        AssociatedTokenProgram.create(senderAccount.getPublicKey(), senderAccount.getPublicKey(), PublicKey.valueOf(tokenMintAddress));
+
+        // Получение токен-счетов двух кошельков, по mint адресу токена
+        PublicKey sellerTokenAccount;
+        PublicKey buyerTokenAccount;
+        try {
+            // Токен-счёт продавца
+            sellerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), new PublicKey(tokenMintAddress));
+            // Токен-счёт покупателя
+            buyerTokenAccount = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("EYAfAfKjVsX6kLc3vqmJRm3DyNux9Bt5y3n6PLxXbQSw"), new PublicKey(tokenMintAddress));
+            log.info(buyerTokenAccount + " " + sellerTokenAccount);
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+
+        // Подготовка транзакции для перевода токенов
+        Transaction transaction = new Transaction();
+        transaction.addInstruction(
+                TokenProgram.transfer(
+                        sellerTokenAccount, // От кого (токен-счёт)
+                        buyerTokenAccount,  // Кому (токен-счёт)
+                        200000,             // Количество токенов в лампортах
+                        new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV")   // Отправитель (кошелёк)
+                )
+        );
+
+        // Отправка транзакции в сеть
+        try {
+            String signature = solanaClient.getRpcClient().getApi().sendTransaction(transaction, senderAccount);
+            log.info("Transaction Signature: " + signature);
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     // Перевод токена между двумя токен-счётами
     public void buyToken() {
@@ -151,9 +255,39 @@ public class WalletService {
 
     }
 
+    public void mintToken() {
+        Account senderAccount = new Account(getSecretKeyWallet());
+        String tokenMintAddress = "7opDX1dwkVh1LjjwsMGgrR8NzaQTLgNiT5EY839GEKVA";
+
+        PublicKey tokenAccountsByOwner = null;
+        try {
+            tokenAccountsByOwner = solanaClient.getRpcClient().getApi().getTokenAccountsByOwner(new PublicKey("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), new PublicKey(tokenMintAddress));
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+
+
+        TransactionInstruction instruction = TokenProgram.mintTo(
+                PublicKey.valueOf(tokenMintAddress), // mint токена
+                tokenAccountsByOwner, // целевой токен-счёт для пополнения
+                PublicKey.valueOf("CtBYeeLc9rCY3X4TwXvTwU79zgNrk3fmgDfpr99SxiKV"), // владелец токена
+                200000001 // кол-во на добавление
+        );
+
+        Transaction transaction = new Transaction();
+        transaction.addInstruction(instruction);
+
+        try {
+            String signature = solanaClient.getRpcClient().getApi().sendTransaction(transaction, senderAccount);
+            log.info("Transaction Signature: " + signature);
+            log.info("Transaction status: {}", solanaClient.getRpcClient().getApi().getTransaction(signature));
+        } catch (RpcException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public Double getTokenBalance(String token) {
         try {
-
             TokenResultObjects.TokenAmountInfo tokenResult = solanaClient.getRpcClient().getApi().getTokenAccountBalance(new PublicKey(token));
             return tokenResult.getUiAmount();
         } catch (RpcException e) {
